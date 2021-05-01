@@ -1,21 +1,78 @@
-import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {View, Text, StyleSheet, Platform} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Focus } from './focus/Focus';
+import { FocusHistory } from './focus/FocusHistory';
+import { Timer } from './timer/Timer';
+import { colors } from './utils/color'
+import { spacing } from './utils/sizes';
 
-export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
+const stats = {
+  complete: 1,
+  cancel: 2
+}
+export default function App(){
+  const [focusSubject, setFocusSubject] = useState(null);
+  const [focusHistory, setFocusHistory] = useState([]);
+
+  const addFocusHistorySubjectWithStatus = (subject, status) => {
+    setFocusHistory([...focusHistory, { key: String(focusHistory.length + 1), subject, status}])
+  }
+  const onClear = () => {
+    setFocusHistory([]);
+  }
+  const saveForusHistory = async () => {
+    try{
+      AsyncStorage.setItem("focusHistory", JSON.stringify(focusHistory));
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const loadFocusHistory = async () => {
+    try{
+      const history = await AsyncStorage.getItem("focusHistory");
+      if(history && JSON.parse(history).length){
+        setFocusHistory( JSON.parse(history));
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  }
+  useEffect(() => {
+    loadFocusHistory(); 
+  }, [])
+  useEffect(() => {
+    saveForusHistory();
+  }, [focusHistory]);
+  return(
+    <View style={style.container}>
+      {focusSubject ? (
+        <Timer 
+        focusSubject={focusSubject} 
+        onTimerEnd={() => {
+          addFocusHistorySubjectWithStatus(focusSubject, stats.complete);
+          setFocusSubject(null);
+        }}
+        clearSubject={() => {
+          addFocusHistorySubjectWithStatus(focusSubject, stats.cancel);
+          setFocusSubject(null);
+        }}
+         />
+      ) : (
+        <View style={{ flex: 0.5 }}>
+          <Focus addSubject={setFocusSubject}/>
+          <FocusHistory focusHistory={focusHistory} onClear={onClear} />
+        </View>
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const style = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    paddingTop: Platform.OS == 'ios' ? spacing.xxl : spacing.lg,
+    backgroundColor: colors.darkBlue,
+  }
 });
